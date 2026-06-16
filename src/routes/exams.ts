@@ -68,8 +68,12 @@ examsRouter.post('/api/exams/generate', async (req, res, next) => {
 examsRouter.get('/api/exams', async (req, res, next) => {
   try {
     const { uid } = (req as AuthenticatedRequest).user;
-    const snapshot = await collection.where('userId', '==', uid).orderBy('createdAt', 'desc').get();
-    res.json(snapshot.docs.map((doc) => toExam(doc.id, doc.data())));
+    const snapshot = await collection.where('userId', '==', uid).get();
+    const exams = snapshot.docs
+      .map((doc) => toExam(doc.id, doc.data()))
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+
+    res.json(exams);
   } catch (error) {
     next(error);
   }

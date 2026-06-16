@@ -17,16 +17,41 @@ type OpenRouterResponse = {
 
 const endpoint = 'https://openrouter.ai/api/v1/chat/completions';
 
+function difficultyGuidance(difficulty: Difficulty): string {
+  if (difficulty === 'easy') {
+    return [
+      'Easy still means useful: test precise definitions, direct implications, and one-step distinctions.',
+      'Avoid giveaway wording. Distractors must be plausible to a beginner who skimmed the material.'
+    ].join(' ');
+  }
+
+  if (difficulty === 'medium') {
+    return [
+      'Medium questions must require applying the material, comparing close concepts, or identifying consequences.',
+      'At least 6 questions should require reasoning beyond copying a phrase from the source.',
+      'Distractors must be conceptually close, not obviously wrong.'
+    ].join(' ');
+  }
+
+  return [
+    'Hard questions must be genuinely challenging for someone who has read the material.',
+    'Require synthesis, edge cases, subtle distinctions, causal reasoning, or applying ideas to new scenarios.',
+    'At least 8 questions should require multi-step reasoning beyond direct recall.',
+    'Distractors must be highly plausible and should reflect common misconceptions or near-correct interpretations.',
+    'Do not ask trivia, vocabulary-only questions, or questions whose answer is obvious from wording alone.'
+  ].join(' ');
+}
+
 function generationMessages(prompt: string, difficulty: Difficulty): ChatMessage[] {
   return [
     {
       role: 'system',
       content:
-        'You generate production-quality exams. Return ONLY valid JSON with this schema: {"title":"string","difficulty":"easy|medium|hard","questions":[{"question":"string","options":["string","string","string","string"],"correctAnswerIndex":0,"explanation":"string"}]}. No markdown, no commentary.'
+        'You generate rigorous production-quality exams. Return ONLY valid JSON with this schema: {"title":"string","difficulty":"easy|medium|hard","questions":[{"question":"string","options":["string","string","string","string"],"correctAnswerIndex":0,"explanation":"string"}]}. No markdown, no commentary. Make every question assess understanding, not pattern matching. Never make the correct answer longer, more specific, or more obviously worded than the distractors.'
     },
     {
       role: 'user',
-      content: `Create exactly 10 multiple-choice questions at ${difficulty} difficulty. Base every question strictly on this source text or topic. Each question must have exactly 4 options and one correctAnswerIndex from 0 to 3. Source:\n\n${prompt}`
+      content: `Create exactly 10 multiple-choice questions at ${difficulty} difficulty. ${difficultyGuidance(difficulty)} Base every question strictly on this source text or topic. Each question must have exactly 4 options and one correctAnswerIndex from 0 to 3. Vary the correct answer position across the exam. Explanations must briefly explain why the correct option is right and why the closest distractor is wrong. Source:\n\n${prompt}`
     }
   ];
 }
@@ -86,7 +111,7 @@ function parseGeneratedExam(raw: string): GeneratedExam {
 }
 
 export async function generateExamWithAI(prompt: string, difficulty: Difficulty): Promise<GeneratedExam> {
-  const raw = await requestJson(generationMessages(prompt, difficulty), 0.4);
+  const raw = await requestJson(generationMessages(prompt, difficulty), 0.55);
 
   try {
     return parseGeneratedExam(raw);

@@ -10,7 +10,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 8080
+        value: 8081
       - key: CORS_ORIGIN
         sync: false
       - key: OPENROUTER_API_KEY

@@ -96,8 +96,8 @@ Authorization: Bearer <firebase-id-token>
 Copy `.env.example` to `.env` and fill in:
 
 ```bash
-PORT=8080
-CORS_ORIGIN=http://localhost:5173
+PORT=8081
+CORS_ORIGIN=http://localhost:5174
 OPENROUTER_API_KEY=...
 OPENROUTER_MODEL=openrouter/free
 FIREBASE_PROJECT_ID=...
