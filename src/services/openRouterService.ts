@@ -1,6 +1,6 @@
 import { env } from '../config/env.js';
 import { ApiError } from '../lib/errors.js';
-import { type Difficulty, type GeneratedExam, generatedExamSchema } from '../schemas/exam.js';
+import { type Difficulty, type GeneratedExam, generatedExamSchema, CATEGORIES } from '../schemas/exam.js';
 
 type ChatMessage = {
   role: 'system' | 'user';
@@ -16,6 +16,8 @@ type OpenRouterResponse = {
 };
 
 const endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+
+const categoryList = CATEGORIES.join(', ');
 
 function difficultyGuidance(difficulty: Difficulty): string {
   if (difficulty === 'easy') {
@@ -48,7 +50,7 @@ function generationMessages(prompt: string, difficulty: Difficulty): ChatMessage
       content: [
         'You generate rigorous production-quality exams. Return ONLY valid JSON.',
         'Schema:',
-        '{"title":"string","difficulty":"easy|medium|hard","questions":[',
+        '{"title":"string","difficulty":"easy|medium|hard","category":"string","questions":[',
         '  {"id":"q1","type":"mcq","question":"string","options":["a","b","c","d"],"correctAnswerIndex":0,"explanation":"string"},',
         '  {"id":"q2","type":"true-false","question":"string","options":["True","False"],"correctAnswerIndex":0,"explanation":"string"},',
         '  {"id":"q3","type":"fill-blank","question":"string with _____","options":["a","b","c","d"],"correctAnswerIndex":0,"explanation":"string"}',
@@ -63,7 +65,10 @@ function generationMessages(prompt: string, difficulty: Difficulty): ChatMessage
         'For true-false: correctAnswerIndex 0 = True, 1 = False.',
         'For fill-blank: the question must contain _____ where the answer fills in.',
         'Use ids: q1 through q10.',
-        'Never make the correct answer longer or more specific than distractors.'
+        'Never make the correct answer longer or more specific than distractors.',
+        '',
+        `Pick the single best category from this list: ${categoryList}.`,
+        'The "category" field must exactly match one of these values.'
       ].join('\n')
     },
     {
@@ -79,10 +84,11 @@ function repairMessages(raw: string): ChatMessage[] {
       role: 'system',
       content: [
         'Repair malformed exam JSON. Return ONLY valid JSON matching this schema:',
-        '{"title":"string","difficulty":"easy|medium|hard","questions":[',
+        '{"title":"string","difficulty":"easy|medium|hard","category":"string","questions":[',
         '  {"id":"q1","type":"mcq","question":"string","options":["a","b","c","d"],"correctAnswerIndex":0,"explanation":"string"}',
         ']}',
-        'Exactly 10 questions. Mix: 6 mcq, 2 true-false, 2 fill-blank.'
+        'Exactly 10 questions. Mix: 6 mcq, 2 true-false, 2 fill-blank.',
+        `Category must be one of: ${categoryList}.`
       ].join('\n')
     },
     {

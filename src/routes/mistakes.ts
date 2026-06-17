@@ -46,9 +46,19 @@ mistakesRouter.get('/api/mistakes', async (req, res, next) => {
     const snapshot = await collection.where('userId', '==', uid).get();
 
     const mistakes = snapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .map((doc) => ({ id: doc.id, ...doc.data() } as { id: string; createdAt: string; [key: string]: unknown }))
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
     res.json(mistakes);
+  } catch (error) {
+    next(error);
+  }
+});
+
+mistakesRouter.get('/api/mistakes/count', async (req, res, next) => {
+  try {
+    const { uid } = (req as unknown as AuthenticatedRequest).user;
+    const snapshot = await collection.where('userId', '==', uid).count().get();
+    res.json({ count: snapshot.data().count });
   } catch (error) {
     next(error);
   }

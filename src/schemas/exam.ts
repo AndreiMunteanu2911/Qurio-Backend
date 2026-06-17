@@ -3,6 +3,13 @@ import { z } from 'zod';
 export const difficultySchema = z.enum(['easy', 'medium', 'hard']);
 export const questionTypeSchema = z.enum(['mcq', 'true-false', 'fill-blank']);
 
+export const categorySchema = z.enum([
+  'biology', 'chemistry', 'physics', 'mathematics', 'computer-science',
+  'engineering', 'medicine', 'psychology', 'sociology', 'economics',
+  'business', 'history', 'geography', 'literature', 'philosophy',
+  'law', 'art', 'music', 'languages', 'education', 'general'
+]);
+
 export const questionSchema = z.object({
   id: z.string().optional(),
   type: questionTypeSchema.optional(),
@@ -15,6 +22,7 @@ export const questionSchema = z.object({
 export const generatedExamSchema = z.object({
   title: z.string().min(3).max(120),
   difficulty: difficultySchema,
+  category: categorySchema,
   questions: z.array(questionSchema).length(10)
 });
 
@@ -54,7 +62,15 @@ export const addMistakesSchema = z.object({
 
 export type Difficulty = z.infer<typeof difficultySchema>;
 export type QuestionType = z.infer<typeof questionTypeSchema>;
+export type Category = z.infer<typeof categorySchema>;
 export type Question = z.infer<typeof questionSchema>;
 export type GeneratedExam = z.infer<typeof generatedExamSchema>;
 export type Exam = z.infer<typeof examSchema>;
 export type ExamResult = z.infer<typeof submitResultSchema>;
+
+export const CATEGORIES: [string, ...string[]] = [
+  'biology', 'chemistry', 'physics', 'mathematics', 'computer-science',
+  'engineering', 'medicine', 'psychology', 'sociology', 'economics',
+  'business', 'history', 'geography', 'literature', 'philosophy',
+  'law', 'art', 'music', 'languages', 'education', 'general'
+] as const;

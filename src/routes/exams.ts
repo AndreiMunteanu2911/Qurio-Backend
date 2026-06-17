@@ -27,6 +27,7 @@ function toExam(id: string, data: DocumentData): Exam {
     userId: String(data.userId),
     prompt: String(data.prompt),
     difficulty: data.difficulty,
+    category: data.category ?? 'general',
     title: String(data.title),
     questions: assignIds(data.questions),
     createdAt
@@ -55,6 +56,7 @@ examsRouter.post('/api/exams/generate', async (req, res, next) => {
       userId: uid,
       prompt: body.prompt,
       difficulty: body.difficulty,
+      category: generated.category,
       title: generated.title,
       questions,
       createdAt: now,
@@ -66,6 +68,7 @@ examsRouter.post('/api/exams/generate', async (req, res, next) => {
       userId: uid,
       prompt: body.prompt,
       difficulty: body.difficulty,
+      category: generated.category,
       title: generated.title,
       questions,
       createdAt: now

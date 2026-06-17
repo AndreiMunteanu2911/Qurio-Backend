@@ -40,7 +40,7 @@ resultsRouter.get('/api/results', async (req, res, next) => {
     const snapshot = await collection.where('userId', '==', uid).get();
 
     const results = snapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .map((doc) => ({ id: doc.id, ...doc.data() } as { id: string; createdAt: string; [key: string]: unknown }))
       .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 
     res.json(results);

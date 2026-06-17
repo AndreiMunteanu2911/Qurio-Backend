@@ -15,6 +15,7 @@ function toExam(id: string, data: DocumentData) {
     id,
     title: String(data.title),
     difficulty: data.difficulty,
+    category: data.category ?? 'general',
     questions: data.questions,
     createdAt
   };
