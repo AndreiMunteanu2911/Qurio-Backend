@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { db } from '../lib/firebase.js';
+import { levelFromXp } from '../lib/level.js';
 
 export const xpRouter = Router();
 
@@ -19,7 +20,7 @@ xpRouter.get('/api/xp', async (req, res, next) => {
     }
 
     const totalXp = (snap.data()?.totalXp as number) ?? 0;
-    res.json({ totalXp, level: Math.floor(totalXp / 100) + 1 });
+    res.json({ totalXp, level: levelFromXp(totalXp) });
   } catch (error) {
     next(error);
   }

@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
 import { submitResultSchema, addMistakesSchema } from '../schemas/exam.js';
 import { db } from '../lib/firebase.js';
+import { levelFromXp } from '../lib/level.js';
 
 export const completeRouter = Router();
 
@@ -11,6 +12,15 @@ const mistakesCol = db.collection('mistakes');
 const xpCol = db.collection('xp');
 const streaksCol = db.collection('streaks');
 const achievementsCol = db.collection('userAchievements');
+const currencyCol = db.collection('currency');
+
+const CURRENCY_PER_COMPLETION = { easy: 10, medium: 20, hard: 30 } as const;
+const CURRENCY_PER_ACHIEVEMENT: Record<string, number> = {
+  first_exam: 50, perfect_score: 100, streak_3: 75, streak_7: 150, streak_30: 500,
+  ten_exams: 100, twenty_five_exams: 250, fifty_exams: 500,
+  hundred_correct: 100, five_hundred_correct: 500, thousand_correct: 1000,
+  all_difficulties: 200, mistake_free: 150
+};
 
 const XP_PER_CORRECT = { easy: 10, medium: 20, hard: 30 } as const;
 
@@ -54,6 +64,13 @@ completeRouter.post('/api/exams/complete', async (req, res, next) => {
       updatedAt: FieldValue.serverTimestamp()
     });
 
+    // Check if first time completing this exam (for currency bonus)
+    const existingResults = await resultsCol
+      .where('userId', '==', uid)
+      .where('examId', '==', resultBody.examId)
+      .get();
+    const isFirstCompletion = existingResults.size <= 1; // current result is already added
+
     // --- 2. Save mistakes ---
     const mistakeQuestions = resultBody.answers
       .filter((a) => !a.correct)
@@ -71,18 +88,18 @@ completeRouter.post('/api/exams/complete', async (req, res, next) => {
     const xpRef = xpCol.doc(uid);
     const xpSnap = await xpRef.get();
 
-    let totalXp = xpAwarded;
-    if (xpSnap.exists) {
-      totalXp += (xpSnap.data()?.totalXp as number) ?? 0;
-    }
+    const oldTotalXp = xpSnap.exists ? ((xpSnap.data()?.totalXp as number) ?? 0) : 0;
+    const totalXp = oldTotalXp + xpAwarded;
+
+    const oldLevel = levelFromXp(oldTotalXp);
+    const newLevel = levelFromXp(totalXp);
+    const levelsGained = newLevel - oldLevel;
 
     await xpRef.set({
       userId: uid,
       totalXp,
       updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
-
-    const newLevel = Math.floor(totalXp / 100) + 1;
 
     // --- 4. Update streak ---
     const streakRef = streaksCol.doc(uid);
@@ -201,12 +218,43 @@ completeRouter.post('/api/exams/complete', async (req, res, next) => {
       }, { merge: true });
     }
 
-    // --- 6. Return everything ---
+    // --- 6. Award currency (first-time completion + achievements + level-up) ---
+    let currencyAwarded = 0;
+    const currencyRef = currencyCol.doc(uid);
+    const currencySnap = await currencyRef.get();
+    let currentBalance = currencySnap.exists ? ((currencySnap.data()?.balance as number) ?? 0) : 0;
+
+    if (isFirstCompletion) {
+      currencyAwarded += CURRENCY_PER_COMPLETION[resultBody.difficulty];
+    }
+
+    for (const ach of newlyUnlocked) {
+      const achCurrency = CURRENCY_PER_ACHIEVEMENT[ach.id] ?? 0;
+      if (achCurrency > 0) {
+        currencyAwarded += achCurrency;
+      }
+    }
+
+    if (levelsGained > 0) {
+      currencyAwarded += levelsGained * 25;
+    }
+
+    if (currencyAwarded > 0) {
+      currentBalance += currencyAwarded;
+      await currencyRef.set({
+        userId: uid,
+        balance: currentBalance,
+        updatedAt: FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    // --- 7. Return everything ---
     res.status(201).json({
       result: { id: resultDoc.id, ...resultBody, createdAt: now },
-      xp: { awarded: xpAwarded, totalXp, level: newLevel },
+      xp: { awarded: xpAwarded, totalXp, level: newLevel, levelsGained },
       streak: { currentStreak, longestStreak },
-      newAchievements: newlyUnlocked
+      newAchievements: newlyUnlocked,
+      currencyAwarded
     });
   } catch (error) {
     next(error);
