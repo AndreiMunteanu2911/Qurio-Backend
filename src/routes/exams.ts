@@ -10,6 +10,14 @@ export const examsRouter = Router();
 
 const collection = db.collection('exams');
 
+function assignIds(questions: DocumentData['questions']) {
+  return (questions ?? []).map((q: Record<string, unknown>, i: number) => ({
+    ...q,
+    id: q.id || `q${i + 1}`,
+    type: q.type || 'mcq'
+  }));
+}
+
 function toExam(id: string, data: DocumentData): Exam {
   const createdAt =
     typeof data.createdAt === 'string' ? data.createdAt : data.createdAt?.toDate?.().toISOString() ?? new Date().toISOString();
@@ -20,7 +28,7 @@ function toExam(id: string, data: DocumentData): Exam {
     prompt: String(data.prompt),
     difficulty: data.difficulty,
     title: String(data.title),
-    questions: data.questions,
+    questions: assignIds(data.questions),
     createdAt
   };
 }
@@ -41,12 +49,14 @@ examsRouter.post('/api/exams/generate', async (req, res, next) => {
     const generated = await generateExamWithAI(body.prompt, body.difficulty);
     const now = new Date().toISOString();
 
+    const questions = assignIds(generated.questions);
+
     const doc = await collection.add({
       userId: uid,
       prompt: body.prompt,
       difficulty: body.difficulty,
       title: generated.title,
-      questions: generated.questions,
+      questions,
       createdAt: now,
       updatedAt: FieldValue.serverTimestamp()
     });
@@ -57,7 +67,7 @@ examsRouter.post('/api/exams/generate', async (req, res, next) => {
       prompt: body.prompt,
       difficulty: body.difficulty,
       title: generated.title,
-      questions: generated.questions,
+      questions,
       createdAt: now
     });
   } catch (error) {

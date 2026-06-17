@@ -20,25 +20,24 @@ const endpoint = 'https://openrouter.ai/api/v1/chat/completions';
 function difficultyGuidance(difficulty: Difficulty): string {
   if (difficulty === 'easy') {
     return [
-      'Easy still means useful: test precise definitions, direct implications, and one-step distinctions.',
-      'Avoid giveaway wording. Distractors must be plausible to a beginner who skimmed the material.'
+      'Test precise definitions, direct implications, and one-step distinctions.',
+      'Distractors must be plausible to a beginner who skimmed the material.'
     ].join(' ');
   }
 
   if (difficulty === 'medium') {
     return [
-      'Medium questions must require applying the material, comparing close concepts, or identifying consequences.',
-      'At least 6 questions should require reasoning beyond copying a phrase from the source.',
+      'Require applying the material, comparing close concepts, or identifying consequences.',
+      'At least 6 questions should require reasoning beyond direct recall.',
       'Distractors must be conceptually close, not obviously wrong.'
     ].join(' ');
   }
 
   return [
-    'Hard questions must be genuinely challenging for someone who has read the material.',
     'Require synthesis, edge cases, subtle distinctions, causal reasoning, or applying ideas to new scenarios.',
     'At least 8 questions should require multi-step reasoning beyond direct recall.',
-    'Distractors must be highly plausible and should reflect common misconceptions or near-correct interpretations.',
-    'Do not ask trivia, vocabulary-only questions, or questions whose answer is obvious from wording alone.'
+    'Distractors must be highly plausible and should reflect common misconceptions.',
+    'Do not ask trivia or vocabulary-only questions.'
   ].join(' ');
 }
 
@@ -46,12 +45,30 @@ function generationMessages(prompt: string, difficulty: Difficulty): ChatMessage
   return [
     {
       role: 'system',
-      content:
-        'You generate rigorous production-quality exams. Return ONLY valid JSON with this schema: {"title":"string","difficulty":"easy|medium|hard","questions":[{"question":"string","options":["string","string","string","string"],"correctAnswerIndex":0,"explanation":"string"}]}. No markdown, no commentary. Make every question assess understanding, not pattern matching. Never make the correct answer longer, more specific, or more obviously worded than the distractors.'
+      content: [
+        'You generate rigorous production-quality exams. Return ONLY valid JSON.',
+        'Schema:',
+        '{"title":"string","difficulty":"easy|medium|hard","questions":[',
+        '  {"id":"q1","type":"mcq","question":"string","options":["a","b","c","d"],"correctAnswerIndex":0,"explanation":"string"},',
+        '  {"id":"q2","type":"true-false","question":"string","options":["True","False"],"correctAnswerIndex":0,"explanation":"string"},',
+        '  {"id":"q3","type":"fill-blank","question":"string with _____","options":["a","b","c","d"],"correctAnswerIndex":0,"explanation":"string"}',
+        ']}',
+        'No markdown, no commentary.',
+        '',
+        'Generate exactly 10 questions with this mix:',
+        '- 6 mcq (multiple choice, 4 options each)',
+        '- 2 true-false (options: ["True","False"])',
+        '- 2 fill-blank (question has _____ placeholder, 4 options to fill it)',
+        '',
+        'For true-false: correctAnswerIndex 0 = True, 1 = False.',
+        'For fill-blank: the question must contain _____ where the answer fills in.',
+        'Use ids: q1 through q10.',
+        'Never make the correct answer longer or more specific than distractors.'
+      ].join('\n')
     },
     {
       role: 'user',
-      content: `Create exactly 10 multiple-choice questions at ${difficulty} difficulty. ${difficultyGuidance(difficulty)} Base every question strictly on this source text or topic. Each question must have exactly 4 options and one correctAnswerIndex from 0 to 3. Vary the correct answer position across the exam. Explanations must briefly explain why the correct option is right and why the closest distractor is wrong. Source:\n\n${prompt}`
+      content: `Create exactly 10 questions at ${difficulty} difficulty. ${difficultyGuidance(difficulty)} Base every question strictly on this source:\n\n${prompt}`
     }
   ];
 }
@@ -60,8 +77,13 @@ function repairMessages(raw: string): ChatMessage[] {
   return [
     {
       role: 'system',
-      content:
-        'Repair malformed exam JSON. Return ONLY valid JSON matching {"title":"string","difficulty":"easy|medium|hard","questions":[{"question":"string","options":["string","string","string","string"],"correctAnswerIndex":0,"explanation":"string"}]} with exactly 10 questions.'
+      content: [
+        'Repair malformed exam JSON. Return ONLY valid JSON matching this schema:',
+        '{"title":"string","difficulty":"easy|medium|hard","questions":[',
+        '  {"id":"q1","type":"mcq","question":"string","options":["a","b","c","d"],"correctAnswerIndex":0,"explanation":"string"}',
+        ']}',
+        'Exactly 10 questions. Mix: 6 mcq, 2 true-false, 2 fill-blank.'
+      ].join('\n')
     },
     {
       role: 'user',
