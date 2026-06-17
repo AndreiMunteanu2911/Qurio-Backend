@@ -57,6 +57,7 @@ completeRouter.post('/api/exams/complete', async (req, res, next) => {
       examId: resultBody.examId,
       examTitle: resultBody.examTitle,
       difficulty: resultBody.difficulty,
+      category: resultBody.category ?? null,
       score: resultBody.score,
       totalQuestions: resultBody.totalQuestions,
       answers: resultBody.answers,

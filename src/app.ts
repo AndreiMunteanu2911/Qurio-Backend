@@ -6,6 +6,7 @@ import { errorHandler, notFoundHandler } from './lib/errors.js';
 import { achievementsRouter } from './routes/achievements.js';
 import { completeRouter } from './routes/complete.js';
 import { currencyRouter } from './routes/currency.js';
+import { dailyRouter } from './routes/daily.js';
 import { examsRouter } from './routes/exams.js';
 import { healthRouter } from './routes/health.js';
 import { inventoryRouter } from './routes/inventory.js';
@@ -24,6 +25,7 @@ app.use(express.json({ limit: '1mb' }));
 
 app.use(healthRouter);
 app.use(currencyRouter);
+app.use(dailyRouter);
 app.use(inventoryRouter);
 app.use(progressRouter);
 app.use(examsRouter);

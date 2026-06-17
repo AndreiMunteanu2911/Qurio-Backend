@@ -153,3 +153,5 @@ export async function generateExamWithAI(prompt: string, difficulty: Difficulty)
     return parseGeneratedExam(repaired);
   }
 }
+
+

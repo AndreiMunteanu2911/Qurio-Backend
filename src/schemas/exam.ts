@@ -42,6 +42,7 @@ export const submitResultSchema = z.object({
   examId: z.string(),
   examTitle: z.string(),
   difficulty: difficultySchema,
+  category: categorySchema.optional(),
   score: z.number().int().min(0),
   totalQuestions: z.number().int().min(1),
   answers: z.array(z.object({
