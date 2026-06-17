@@ -36,7 +36,7 @@ examsRouter.use('/api/exams', requireAuth);
 
 examsRouter.post('/api/exams/generate', async (req, res, next) => {
   try {
-    const { uid } = (req as AuthenticatedRequest).user;
+    const { uid } = (req as unknown as AuthenticatedRequest).user;
     const body = generateExamRequestSchema.parse(req.body);
     const generated = await generateExamWithAI(body.prompt, body.difficulty);
     const now = new Date().toISOString();
@@ -67,7 +67,7 @@ examsRouter.post('/api/exams/generate', async (req, res, next) => {
 
 examsRouter.get('/api/exams', async (req, res, next) => {
   try {
-    const { uid } = (req as AuthenticatedRequest).user;
+    const { uid } = (req as unknown as AuthenticatedRequest).user;
     const snapshot = await collection.where('userId', '==', uid).get();
     const exams = snapshot.docs
       .map((doc) => toExam(doc.id, doc.data()))
@@ -81,7 +81,7 @@ examsRouter.get('/api/exams', async (req, res, next) => {
 
 examsRouter.get('/api/exams/:examId', async (req, res, next) => {
   try {
-    const { uid } = (req as AuthenticatedRequest).user;
+    const { uid } = (req as unknown as AuthenticatedRequest).user;
     const examId = getExamId(req.params.examId);
     const doc = await collection.doc(examId).get();
 
@@ -102,7 +102,7 @@ examsRouter.get('/api/exams/:examId', async (req, res, next) => {
 
 examsRouter.delete('/api/exams/:examId', async (req, res, next) => {
   try {
-    const { uid } = (req as AuthenticatedRequest).user;
+    const { uid } = (req as unknown as AuthenticatedRequest).user;
     const examId = getExamId(req.params.examId);
     const ref = collection.doc(examId);
     const doc = await ref.get();
