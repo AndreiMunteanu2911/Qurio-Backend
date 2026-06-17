@@ -23,7 +23,8 @@ function difficultyGuidance(difficulty: Difficulty): string {
   if (difficulty === 'easy') {
     return [
       'Test precise definitions, direct implications, and one-step distinctions.',
-      'Distractors must be plausible to a beginner who skimmed the material.'
+      'Distractors must be plausible to a beginner who skimmed the material.',
+      'All four options should look believable on first glance — avoid making any option obviously unrelated to the topic.'
     ].join(' ');
   }
 
@@ -31,7 +32,8 @@ function difficultyGuidance(difficulty: Difficulty): string {
     return [
       'Require applying the material, comparing close concepts, or identifying consequences.',
       'At least 6 questions should require reasoning beyond direct recall.',
-      'Distractors must be conceptually close, not obviously wrong.'
+      'Distractors must be conceptually close, not obviously wrong.',
+      'Each distractor should contain topic-appropriate terminology so none stands out as fake.'
     ].join(' ');
   }
 
@@ -66,6 +68,9 @@ function generationMessages(prompt: string, difficulty: Difficulty): ChatMessage
         'For fill-blank: the question must contain _____ where the answer fills in.',
         'Use ids: q1 through q10.',
         'Never make the correct answer longer or more specific than distractors.',
+        'Every distractor must be a plausible answer that someone unfamiliar with the topic could reasonably pick.',
+        'The correct answer should not be the only option that contains key terms from the source material.',
+        'All options must use similar vocabulary depth — do not put technical terms only in the correct answer.',
         '',
         `Pick the single best category from this list: ${categoryList}.`,
         'The "category" field must exactly match one of these values.'

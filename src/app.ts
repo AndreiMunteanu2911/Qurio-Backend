@@ -8,6 +8,7 @@ import { completeRouter } from './routes/complete.js';
 import { examsRouter } from './routes/exams.js';
 import { healthRouter } from './routes/health.js';
 import { mistakesRouter } from './routes/mistakes.js';
+import { progressRouter } from './routes/progress.js';
 import { resultsRouter } from './routes/results.js';
 import { sharedRouter } from './routes/shared.js';
 import { streaksRouter } from './routes/streaks.js';
@@ -20,6 +21,7 @@ app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 app.use(express.json({ limit: '1mb' }));
 
 app.use(healthRouter);
+app.use(progressRouter);
 app.use(examsRouter);
 app.use(completeRouter);
 app.use(mistakesRouter);
