@@ -50,6 +50,16 @@ dailyRouter.get('/api/daily', async (req, res, next) => {
 
     const loginClaimedToday = !isNewDay && ((dailyData.loginClaimedToday as boolean) ?? false);
 
+    // Ensure quest is assigned even for new users
+    if (!dailyData.dailyQuest) {
+      await assignDailyQuestIfNeeded(uid, today);
+      const refreshedSnap = await dailyCol.doc(uid).get();
+      if (refreshedSnap.exists) {
+        const refreshedData = refreshedSnap.data()!;
+        dailyData.dailyQuest = refreshedData.dailyQuest as { templateId: string; claimed: boolean } | null;
+      }
+    }
+
     // Daily quest
     const dailyQuest = (dailyData.dailyQuest as { templateId: string; claimed: boolean } | null) ?? null;
     const questTemplate = dailyQuest ? QUEST_TEMPLATES.find((t) => t.id === dailyQuest.templateId) ?? null : null;
@@ -68,10 +78,13 @@ dailyRouter.get('/api/daily', async (req, res, next) => {
       questCompleted = questProgress >= questTemplate.target && !dailyQuest.claimed;
     }
 
+    const loginBonus = LOGIN_BONUS_BASE + (loginStreak > 1 ? LOGIN_STREAK_BONUS : 0);
+
     res.json({
       loginStreak,
       loginClaimedToday,
       canClaimLogin: isNewDay && !loginClaimedToday,
+      loginBonus,
       dailyQuest: questTemplate
         ? { ...questTemplate, progress: questProgress, completed: questCompleted, claimed: dailyQuest?.claimed ?? false }
         : null
@@ -238,9 +251,7 @@ function evaluateQuestProgress(templateId: string, todayResults: FirebaseFiresto
 
 async function assignDailyQuestIfNeeded(uid: string, today: string) {
   const dailySnap = await dailyCol.doc(uid).get();
-  if (!dailySnap.exists) return;
-
-  const dailyData = dailySnap.data()!;
+  const dailyData = dailySnap.exists ? dailySnap.data()! : {};
   if (dailyData.dailyQuest) return; // Already assigned
 
   // Check last few quests to avoid repeats
