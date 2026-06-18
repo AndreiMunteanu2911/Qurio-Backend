@@ -49,7 +49,8 @@ export const submitResultSchema = z.object({
     questionId: z.string(),
     selected: z.number().int().min(0),
     correct: z.boolean()
-  }))
+  })),
+  powerUpsUsed: z.array(z.string()).optional()
 });
 
 export const addMistakesSchema = z.object({

@@ -10,6 +10,9 @@ export const examsRouter = Router();
 
 const collection = db.collection('exams');
 
+const generationTimestamps = new Map<string, number>();
+const RATE_LIMIT_MS = 60_000; // 1 minute
+
 function assignIds(questions: DocumentData['questions']) {
   return (questions ?? []).map((q: Record<string, unknown>, i: number) => ({
     ...q,
@@ -46,8 +49,20 @@ examsRouter.use('/api/exams', requireAuth);
 examsRouter.post('/api/exams/generate', async (req, res, next) => {
   try {
     const { uid } = (req as unknown as AuthenticatedRequest).user;
+
+    // Rate limit: 1 exam generation per minute per user
+    const lastGen = generationTimestamps.get(uid);
+    const nowMs = Date.now();
+    if (lastGen && nowMs - lastGen < RATE_LIMIT_MS) {
+      const retryAfter = Math.ceil((RATE_LIMIT_MS - (nowMs - lastGen)) / 1000);
+      throw new ApiError(429, 'rate_limited', `Please wait ${retryAfter} second${retryAfter !== 1 ? 's' : ''} between exam generations.`);
+    }
+
     const body = generateExamRequestSchema.parse(req.body);
     const generated = await generateExamWithAI(body.prompt, body.difficulty);
+
+    // Update timestamp on success
+    generationTimestamps.set(uid, nowMs);
     const now = new Date().toISOString();
 
     const questions = assignIds(generated.questions);
