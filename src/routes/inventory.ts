@@ -143,7 +143,7 @@ inventoryRouter.post('/api/inventory/equip', async (req, res, next) => {
       activeCosmetics[slot] = itemId;
     }
 
-    await invRef.set({ userId: uid, items: inv.items, activeCosmetics }, { merge: true });
+    await invRef.set({ userId: uid, items: inv.items, activeCosmetics });
     res.json({ activeCosmetics });
   } catch (error) {
     next(error);
