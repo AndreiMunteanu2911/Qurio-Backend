@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { FieldValue, type DocumentData } from 'firebase-admin/firestore';
 import { requireAuth, type AuthenticatedRequest } from '../middleware/auth.js';
-import { generateExamRequestSchema, type Exam } from '../schemas/exam.js';
+import { defaultExamSettings, examSettingsSchema, generateExamRequestSchema, type Exam } from '../schemas/exam.js';
 import { generateExamWithAI } from '../services/openRouterService.js';
 import { db } from '../lib/firebase.js';
 import { ApiError } from '../lib/errors.js';
@@ -24,6 +24,8 @@ function assignIds(questions: DocumentData['questions']) {
 function toExam(id: string, data: DocumentData): Exam {
   const createdAt =
     typeof data.createdAt === 'string' ? data.createdAt : data.createdAt?.toDate?.().toISOString() ?? new Date().toISOString();
+  const parsedSettings = examSettingsSchema.safeParse(data.settings);
+  const settings = parsedSettings.success ? parsedSettings.data : defaultExamSettings;
 
   return {
     id,
@@ -33,6 +35,7 @@ function toExam(id: string, data: DocumentData): Exam {
     category: data.category ?? 'general',
     title: String(data.title),
     questions: assignIds(data.questions),
+    settings,
     createdAt
   };
 }
@@ -59,7 +62,7 @@ examsRouter.post('/api/exams/generate', async (req, res, next) => {
     }
 
     const body = generateExamRequestSchema.parse(req.body);
-    const generated = await generateExamWithAI(body.prompt, body.difficulty);
+    const generated = await generateExamWithAI(body.prompt, body.difficulty, body.settings);
 
     // Update timestamp on success
     generationTimestamps.set(uid, nowMs);
@@ -74,6 +77,7 @@ examsRouter.post('/api/exams/generate', async (req, res, next) => {
       category: generated.category,
       title: generated.title,
       questions,
+      settings: body.settings,
       createdAt: now,
       updatedAt: FieldValue.serverTimestamp()
     });
@@ -86,6 +90,7 @@ examsRouter.post('/api/exams/generate', async (req, res, next) => {
       category: generated.category,
       title: generated.title,
       questions,
+      settings: body.settings,
       createdAt: now
     });
   } catch (error) {

@@ -1,6 +1,6 @@
 import { env } from '../config/env.js';
 import { ApiError } from '../lib/errors.js';
-import { type Difficulty, type GeneratedExam, generatedExamSchema, CATEGORIES } from '../schemas/exam.js';
+import { type Difficulty, type ExamSettings, type GeneratedExam, generatedExamSchema, CATEGORIES } from '../schemas/exam.js';
 
 type ChatMessage = {
   role: 'system' | 'user';
@@ -45,7 +45,15 @@ function difficultyGuidance(difficulty: Difficulty): string {
   ].join(' ');
 }
 
-function generationMessages(prompt: string, difficulty: Difficulty): ChatMessage[] {
+function questionMixText(settings: ExamSettings) {
+  return [
+    `- ${settings.questionTypeMix.mcq} mcq (multiple choice, 4 options each)`,
+    `- ${settings.questionTypeMix.trueFalse} true-false (options: ["True","False"])`,
+    `- ${settings.questionTypeMix.fillBlank} fill-blank (question has _____ placeholder, 4 options to fill it)`
+  ].filter((line) => !line.startsWith('- 0 ')).join('\n');
+}
+
+function generationMessages(prompt: string, difficulty: Difficulty, settings: ExamSettings): ChatMessage[] {
   return [
     {
       role: 'system',
@@ -59,14 +67,12 @@ function generationMessages(prompt: string, difficulty: Difficulty): ChatMessage
         ']}',
         'No markdown, no commentary.',
         '',
-        'Generate exactly 10 questions with this mix:',
-        '- 6 mcq (multiple choice, 4 options each)',
-        '- 2 true-false (options: ["True","False"])',
-        '- 2 fill-blank (question has _____ placeholder, 4 options to fill it)',
+        `Generate exactly ${settings.questionCount} questions with this mix:`,
+        questionMixText(settings),
         '',
         'For true-false: correctAnswerIndex 0 = True, 1 = False.',
         'For fill-blank: the question must contain _____ where the answer fills in.',
-        'Use ids: q1 through q10.',
+        `Use ids: q1 through q${settings.questionCount}.`,
         'Never make the correct answer longer or more specific than distractors.',
         'Every distractor must be a plausible answer that someone unfamiliar with the topic could reasonably pick.',
         'The correct answer should not be the only option that contains key terms from the source material.',
@@ -78,12 +84,12 @@ function generationMessages(prompt: string, difficulty: Difficulty): ChatMessage
     },
     {
       role: 'user',
-      content: `Create exactly 10 questions at ${difficulty} difficulty. ${difficultyGuidance(difficulty)} Base every question strictly on this source:\n\n${prompt}`
+      content: `Create exactly ${settings.questionCount} questions at ${difficulty} difficulty. ${difficultyGuidance(difficulty)} Base every question strictly on this source:\n\n${prompt}`
     }
   ];
 }
 
-function repairMessages(raw: string): ChatMessage[] {
+function repairMessages(raw: string, settings: ExamSettings): ChatMessage[] {
   return [
     {
       role: 'system',
@@ -92,7 +98,7 @@ function repairMessages(raw: string): ChatMessage[] {
         '{"title":"string","difficulty":"easy|medium|hard","category":"string","questions":[',
         '  {"id":"q1","type":"mcq","question":"string","options":["a","b","c","d"],"correctAnswerIndex":0,"explanation":"string"}',
         ']}',
-        'Exactly 10 questions. Mix: 6 mcq, 2 true-false, 2 fill-blank.',
+        `Exactly ${settings.questionCount} questions. Mix: ${settings.questionTypeMix.mcq} mcq, ${settings.questionTypeMix.trueFalse} true-false, ${settings.questionTypeMix.fillBlank} fill-blank.`,
         `Category must be one of: ${categoryList}.`
       ].join('\n')
     },
@@ -134,24 +140,44 @@ async function requestJson(messages: ChatMessage[], temperature: number) {
   return content;
 }
 
-function parseGeneratedExam(raw: string): GeneratedExam {
+function validateGeneratedExam(exam: GeneratedExam, settings: ExamSettings) {
+  const counts = exam.questions.reduce((acc, question) => {
+    const type = question.type ?? 'mcq';
+    if (type === 'true-false') acc.trueFalse += 1;
+    else if (type === 'fill-blank') acc.fillBlank += 1;
+    else acc.mcq += 1;
+    return acc;
+  }, { mcq: 0, trueFalse: 0, fillBlank: 0 });
+
+  if (
+    exam.questions.length !== settings.questionCount ||
+    counts.mcq !== settings.questionTypeMix.mcq ||
+    counts.trueFalse !== settings.questionTypeMix.trueFalse ||
+    counts.fillBlank !== settings.questionTypeMix.fillBlank
+  ) {
+    throw new ApiError(502, 'invalid_ai_json', 'The generated exam did not match the requested settings.');
+  }
+
+  return exam;
+}
+
+function parseGeneratedExam(raw: string, settings: ExamSettings): GeneratedExam {
   try {
     const parsed = JSON.parse(raw) as unknown;
-    return generatedExamSchema.parse(parsed);
+    return validateGeneratedExam(generatedExamSchema.parse(parsed), settings);
   } catch {
     throw new ApiError(502, 'invalid_ai_json', 'The generated exam did not match the expected format.');
   }
 }
 
-export async function generateExamWithAI(prompt: string, difficulty: Difficulty): Promise<GeneratedExam> {
-  const raw = await requestJson(generationMessages(prompt, difficulty), 0.55);
+export async function generateExamWithAI(prompt: string, difficulty: Difficulty, settings: ExamSettings): Promise<GeneratedExam> {
+  const raw = await requestJson(generationMessages(prompt, difficulty, settings), 0.55);
 
   try {
-    return parseGeneratedExam(raw);
+    return parseGeneratedExam(raw, settings);
   } catch {
-    const repaired = await requestJson(repairMessages(raw), 0);
-    return parseGeneratedExam(repaired);
+    const repaired = await requestJson(repairMessages(raw, settings), 0);
+    return parseGeneratedExam(repaired, settings);
   }
 }
-
 

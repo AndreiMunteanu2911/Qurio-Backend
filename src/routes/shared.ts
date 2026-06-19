@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { db } from '../lib/firebase.js';
 import { ApiError } from '../lib/errors.js';
+import { defaultExamSettings, examSettingsSchema } from '../schemas/exam.js';
 import type { DocumentData } from 'firebase-admin/firestore';
 
 export const sharedRouter = Router();
@@ -10,6 +11,7 @@ const collection = db.collection('exams');
 function toExam(id: string, data: DocumentData) {
   const createdAt =
     typeof data.createdAt === 'string' ? data.createdAt : data.createdAt?.toDate?.().toISOString() ?? new Date().toISOString();
+  const parsedSettings = examSettingsSchema.safeParse(data.settings);
 
   return {
     id,
@@ -17,6 +19,7 @@ function toExam(id: string, data: DocumentData) {
     difficulty: data.difficulty,
     category: data.category ?? 'general',
     questions: data.questions,
+    settings: parsedSettings.success ? parsedSettings.data : defaultExamSettings,
     createdAt
   };
 }
