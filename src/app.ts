@@ -17,10 +17,21 @@ import { sharedRouter } from './routes/shared.js';
 import { streaksRouter } from './routes/streaks.js';
 import { xpRouter } from './routes/xp.js';
 
+const allowedOrigins = env.CORS_ORIGIN;
+
 export const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+    if (/^capacitor:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
+    callback(null, false);
+  },
+  credentials: true
+}));
 app.use(express.json({ limit: '1mb' }));
 
 app.use(healthRouter);
